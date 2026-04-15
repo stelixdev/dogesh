@@ -1,6 +1,19 @@
 const { Client, GatewayIntentBits, ActivityType } = require('discord.js');
 const { joinVoiceChannel, VoiceConnectionStatus, entersState } = require('@discordjs/voice');
 const { handleDogesh } = require('./handlers/dogesh');
+// Dummy server to keep Render happy (free plan)
+const http = require('http');
+
+const server = http.createServer((req, res) => {
+    res.writeHead(200);
+    res.end('Bot is running!');
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Dummy server running on port ${PORT}`);
+});
+
 
 const client = new Client({
   intents: [
