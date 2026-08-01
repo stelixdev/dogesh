@@ -25,7 +25,5 @@ Environment
 Create a local `.env` (do not commit) with the following variables (see `.env.example`):
 
 - `BOT_TOKEN` — your Discord bot token
-- `VC_CHANNEL_ID` — voice channel ID (optional)
-- `GUILD_ID` — server (guild) ID
 - `GROQ_KEY` — Groq API key
 - `TAVILY_KEY` — Tavily API key

@@ -1,108 +1,87 @@
 const { Client, GatewayIntentBits, ActivityType } = require('discord.js');
-const { joinVoiceChannel, VoiceConnectionStatus, entersState } = require('@discordjs/voice');
 const { handleDogesh } = require('./handlers/dogesh');
+const reminderScheduler = require('./lib/reminderScheduler');
 
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
   ],
 });
 
-let connection = null;
-let manualLeave = false; // jab /dogesh leave karo tab auto-rejoin band ho jaye
-
-function isConnected() {
-  return !!(connection && connection.state && connection.state.status !== VoiceConnectionStatus.Destroyed);
-}
-
-async function joinVC(guild) {
-  try {
-    if (!guild) {
-      guild = client.guilds.cache.get(process.env.GUILD_ID) || await client.guilds.fetch(process.env.GUILD_ID);
-    }
-    if (!guild) throw new Error(`Guild nahi mila. GUILD_ID check karo .env mein (current: "${process.env.GUILD_ID}")`);
-
-    const channel = guild.channels.cache.get(process.env.VC_CHANNEL_ID) || await client.channels.fetch(process.env.VC_CHANNEL_ID);
-    if (!channel) throw new Error(`Channel nahi mila. VC_CHANNEL_ID check karo .env mein (current: "${process.env.VC_CHANNEL_ID}")`);
-
-    connection = joinVoiceChannel({
-      channelId:      channel.id,
-      guildId:        guild.id,
-      adapterCreator: guild.voiceAdapterCreator,
-      selfDeaf:       true,
-      selfMute:       true,
-    });
-
-    connection.on(VoiceConnectionStatus.Ready, () => {
-      console.log('✅ VC join ho gaya!');
-    });
-
-    connection.on(VoiceConnectionStatus.Disconnected, async () => {
-      if (manualLeave) return; // manual leave tha, auto-rejoin mat karo
-      try {
-        await Promise.race([
-          entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
-          entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
-        ]);
-      } catch {
-        try { connection.destroy(); } catch (_) {}
-        connection = null;
-        console.log('🔁 10 sec mein wapas join karunga...');
-        setTimeout(() => joinVC(null), 10_000);
-      }
-    });
-
-    connection.on(VoiceConnectionStatus.Destroyed, () => {
-      connection = null;
-      if (manualLeave) return; // manual leave tha, auto-rejoin mat karo
-      setTimeout(() => joinVC(null), 10_000);
-    });
-
-  } catch (err) {
-    console.error('❌ Error:', err.message);
-    if (!manualLeave) {
-      setTimeout(() => joinVC(null), 15_000);
-    }
-  }
-}
-
-// /dogesh join aur /dogesh leave commands handle karna
+// /dogesh commands handle karna
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
   const content = message.content.trim();
   const lower = content.toLowerCase();
 
-  if (lower === '/dogesh join') {
-    manualLeave = false;
+  let shouldReply = false;
+  let query = '';
+  let repliedToMessage = null;
+  let originalUserMessage = null;
 
-    if (isConnected()) {
-      return message.reply('Main pehle se VC mein hoon! 👻');
-    }
+  const mention = client.user ? `<@${client.user.id}>` : '';
+  const mentionNick = client.user ? `<@!${client.user.id}>` : '';
+  const textPrefix = '@dogesh bhai';
 
-    await message.reply('Aa raha hoon VC mein... 🎤');
-    await joinVC(message.guild);
-
-  } else if (lower === '/dogesh leave') {
-    if (!isConnected()) {
-      return message.reply('Main abhi kisi VC mein nahi hoon! 🤷');
-    }
-
-    manualLeave = true;
-    connection.destroy();
-    connection = null;
-    await message.reply('Chal gaya VC se! 👋');
-    console.log('🚪 Manual leave ho gaya.');
-
-  } else if (lower.startsWith('/dogesh ')) {
-    const query = content.slice('/dogesh '.length).trim();
+  if (mention && content.startsWith(mention)) {
+    query = content.slice(mention.length).trim();
     if (!query) return message.reply('Kuch toh puch bhai! 😅');
+    shouldReply = true;
+  } else if (mentionNick && content.startsWith(mentionNick)) {
+    query = content.slice(mentionNick.length).trim();
+    if (!query) return message.reply('Kuch toh puch bhai! 😅');
+    shouldReply = true;
+  } else if (lower.startsWith(textPrefix + ' ')) {
+    query = content.slice(textPrefix.length).trim();
+    if (!query) return message.reply('Kuch toh puch bhai! 😅');
+    shouldReply = true;
+  } else if (lower === textPrefix) {
+    return message.reply('Kuch toh puch bhai! 😅');
+  } else if (message.reference && message.reference.messageId) {
     try {
-      await handleDogesh(message, query);
+      repliedToMessage = message.channel.messages.cache.get(message.reference.messageId)
+        || await message.channel.messages.fetch(message.reference.messageId);
+
+      if (repliedToMessage && repliedToMessage.author.id === client.user.id) {
+        query = content;
+        shouldReply = true;
+
+        if (repliedToMessage.reference && repliedToMessage.reference.messageId) {
+          originalUserMessage = message.channel.messages.cache.get(repliedToMessage.reference.messageId)
+            || await message.channel.messages.fetch(repliedToMessage.reference.messageId);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching reply reference:', err);
+    }
+  }
+
+  let channelContext = null;
+
+  if (shouldReply) {
+    const equalNumMatch = query.match(/^=(\d+)\s+(.*)$/s) || query.match(/^=(\d+)$/);
+    if (equalNumMatch) {
+      const limit = parseInt(equalNumMatch[1], 10);
+      const actualQuery = equalNumMatch[2] || '';
+      if (limit > 0 && limit <= 50) {
+        try {
+          const fetched = await message.channel.messages.fetch({ limit, before: message.id });
+          const msgArray = Array.from(fetched.values()).reverse();
+          channelContext = msgArray.map(m => `${m.author.username}: "${m.content}"`).join('\n');
+          query = actualQuery || 'Summarize the recent conversation above.';
+        } catch (err) {
+          console.error('Error fetching channel context messages:', err);
+        }
+      }
+    }
+
+    try {
+      await handleDogesh(message, query, repliedToMessage, originalUserMessage, channelContext);
     } catch (err) {
       console.error('Dogesh error:', err);
       await message.reply('❌ Kuch gadbad ho gayi, thodi der baad try karo.');
@@ -112,15 +91,28 @@ client.on('messageCreate', async (message) => {
 
 client.once('clientReady', () => {
   console.log(`🤖 Bot ready: ${client.user.tag}`);
+  reminderScheduler.init(client);
   client.user.setPresence({
-    activities: [{ name: 'VC mein AFK 👻', type: ActivityType.Custom }],
-    status: 'idle',
+    activities: [{ name: '@Dogesh Bhai ask anything 👻', type: ActivityType.Custom }],
+    status: 'online',
   });
-  joinVC(null); // startup pe auto-join
 });
+
+const http = require('http');
 
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled error:', err);
+});
+
+// Port binding for Koyeb/Render/Vercel health checks
+const PORT = process.env.PORT || 3000;
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Dogesh Bhai is online re! 💀\n');
+});
+
+server.listen(PORT, () => {
+  console.log(`🤖 HTTP Health-check server listening on port ${PORT}`);
 });
 
 client.login(process.env.BOT_TOKEN);

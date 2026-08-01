@@ -2,3 +2,7 @@
 .env
 node_modules
 .vscode
+recent_convos.json
+reminders.json
+scratch_list_models.js
+*.log
