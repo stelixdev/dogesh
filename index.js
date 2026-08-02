@@ -1,4 +1,5 @@
-const { Client, GatewayIntentBits, ActivityType } = require('discord.js');
+require('./lib/logger');
+const { Client, GatewayIntentBits, ActivityType, PermissionsBitField, AttachmentBuilder } = require('discord.js');
 const { handleDogesh } = require('./handlers/dogesh');
 const reminderScheduler = require('./lib/reminderScheduler');
 
@@ -77,6 +78,38 @@ client.on('messageCreate', async (message) => {
         } catch (err) {
           console.error('Error fetching channel context messages:', err);
         }
+      }
+    }
+
+    if (query.toLowerCase() === '=lastinfo') {
+      if (!message.member || !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+        return message.reply('❌ Yeh command sirf Server Administrators hi run kar sakte hain!');
+      }
+
+      try {
+        const tracker = require('./lib/tracker');
+        const logger = require('./lib/logger');
+        const recentLogs = logger.getRecentLogs(6);
+
+        const last = tracker.lastExecution;
+        const infoMsg = `🤖 **Last Execution Info:**
+• **Time:** ${last.timestamp}
+• **User:** ${last.user}
+• **Query:** "${last.query}"
+• **Model Used:** \`${last.modelUsed}\`
+• **API Key/Source:** \`${last.apiKeyUsed}\`
+• **Tavily Search:** \`${last.tavilyUsed}\`
+• **Latency:** \`${last.latencyMs}ms\`
+
+📋 **Console Output (Last 6 lines):**
+\`\`\`prolog
+${recentLogs}
+\`\`\``;
+
+        return message.reply(infoMsg);
+      } catch (err) {
+        console.error('Error handling =lastinfo command:', err);
+        return message.reply('❌ System metadata retrieve karne mein error aayi.');
       }
     }
 

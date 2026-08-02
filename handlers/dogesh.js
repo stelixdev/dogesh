@@ -2,6 +2,7 @@ const groq = require('../lib/groqClient');
 const gemini = require('../lib/geminiClient');
 const { tavilySearch } = require('../lib/tavily');
 const { addEntry, getRecent } = require('../lib/convoMemory');
+const tracker = require('../lib/tracker');
 
 const MODEL_NAME = 'llama-3.3-70b-versatile';
 
@@ -57,6 +58,8 @@ function postProcessResponse(text, guild) {
 }
 
 async function handleDogesh(message, query, repliedToMessage, originalUserMessage, channelContext) {
+  const startTime = Date.now();
+  tracker.lastExecution.tavilyUsed = 'no';
   // Check if it's a reminder command
   const reminderMatch = query.match(/^=remind(?:er)?(?:\s+(.*))?$/i);
   if (reminderMatch) {
@@ -391,6 +394,7 @@ Example Output:
       console.error('Failed to optimize query, falling back to original basic search:', err);
     }
 
+    tracker.lastExecution.tavilyUsed = `yes (${searchMode})`;
     const results = await tavilySearch(optimizedQuery, searchMode);
 
     const followupSystemPrompt = `You are Dogesh — the Discord AFK helper. Use the provided web search results to answer the user's question.
@@ -452,11 +456,19 @@ Answering rules:
     if (!finalAnswer) {
       const finalRes = await groq.chat.completions.create({ model: MODEL_NAME, messages: messagesForFollowup });
       finalAnswer = finalRes.choices[0].message.content;
+      tracker.lastExecution.modelUsed = MODEL_NAME;
+      tracker.lastExecution.apiKeyUsed = 'Groq Fallback';
     }
 
     await searchingMsg.delete().catch(() => {});
     const processedAnswer = postProcessResponse(finalAnswer, message.guild);
     await message.reply(processedAnswer);
+
+    // Record tracker details
+    tracker.lastExecution.timestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }) + ' IST';
+    tracker.lastExecution.user = `${message.author.username} (ID: ${message.author.id})`;
+    tracker.lastExecution.query = query;
+    tracker.lastExecution.latencyMs = Date.now() - startTime;
 
     // record convo
     try { await addEntry(message.channel.id, 'user', query, message.author.username); } catch (e) {}
@@ -502,10 +514,18 @@ Answering rules:
     if (!finalAnswer) {
       const finalRes = await groq.chat.completions.create({ model: MODEL_NAME, messages: messagesForDirect });
       finalAnswer = finalRes.choices[0].message.content;
+      tracker.lastExecution.modelUsed = MODEL_NAME;
+      tracker.lastExecution.apiKeyUsed = 'Groq Fallback';
     }
 
     const processedAnswer = postProcessResponse(finalAnswer, message.guild);
     await message.reply(processedAnswer);
+
+    // Record tracker details
+    tracker.lastExecution.timestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }) + ' IST';
+    tracker.lastExecution.user = `${message.author.username} (ID: ${message.author.id})`;
+    tracker.lastExecution.query = query;
+    tracker.lastExecution.latencyMs = Date.now() - startTime;
 
     // record convo
     try { await addEntry(message.channel.id, 'user', query, message.author.username); } catch (e) {}
