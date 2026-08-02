@@ -60,6 +60,7 @@ function postProcessResponse(text, guild) {
 async function handleDogesh(message, query, repliedToMessage, originalUserMessage, channelContext) {
   const startTime = Date.now();
   tracker.lastExecution.tavilyUsed = 'no';
+  console.log(`💬 Processing message from @${message.author.username}: "${query}"`);
   // Check if it's a reminder command
   const reminderMatch = query.match(/^=remind(?:er)?(?:\s+(.*))?$/i);
   if (reminderMatch) {
@@ -470,6 +471,8 @@ Answering rules:
     tracker.lastExecution.query = query;
     tracker.lastExecution.latencyMs = Date.now() - startTime;
 
+    console.log(`✅ Sent reply in ${tracker.lastExecution.latencyMs}ms. Model: ${tracker.lastExecution.modelUsed}, API: ${tracker.lastExecution.apiKeyUsed}, Tavily: ${tracker.lastExecution.tavilyUsed}`);
+
     // record convo
     try { await addEntry(message.channel.id, 'user', query, message.author.username); } catch (e) {}
     try { await addEntry(message.channel.id, 'assistant', processedAnswer); } catch (e) {}
@@ -526,6 +529,8 @@ Answering rules:
     tracker.lastExecution.user = `${message.author.username} (ID: ${message.author.id})`;
     tracker.lastExecution.query = query;
     tracker.lastExecution.latencyMs = Date.now() - startTime;
+
+    console.log(`✅ Sent reply in ${tracker.lastExecution.latencyMs}ms. Model: ${tracker.lastExecution.modelUsed}, API: ${tracker.lastExecution.apiKeyUsed}, Tavily: ${tracker.lastExecution.tavilyUsed}`);
 
     // record convo
     try { await addEntry(message.channel.id, 'user', query, message.author.username); } catch (e) {}

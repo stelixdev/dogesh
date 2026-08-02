@@ -81,7 +81,7 @@ client.on('messageCreate', async (message) => {
       }
     }
 
-    if (query.toLowerCase() === '=lastinfo') {
+    if (query.toLowerCase() === '=msginfo') {
       if (!message.member || !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
         return message.reply('❌ Yeh command sirf Server Administrators hi run kar sakte hain!');
       }
@@ -89,10 +89,10 @@ client.on('messageCreate', async (message) => {
       try {
         const tracker = require('./lib/tracker');
         const logger = require('./lib/logger');
-        const recentLogs = logger.getRecentLogs(6);
+        let recentLogs = logger.getRecentLogs(6);
 
         const last = tracker.lastExecution;
-        const infoMsg = `🤖 **Last Execution Info:**
+        const baseMsg = `🤖 **Last Message Info:**
 • **Time:** ${last.timestamp}
 • **User:** ${last.user}
 • **Query:** "${last.query}"
@@ -103,9 +103,15 @@ client.on('messageCreate', async (message) => {
 
 📋 **Console Output (Last 6 lines):**
 \`\`\`prolog
-${recentLogs}
-\`\`\``;
+`;
+        const footer = `\n\`\`\``;
 
+        const maxLogsLength = 2000 - baseMsg.length - footer.length - 50;
+        if (recentLogs.length > maxLogsLength) {
+          recentLogs = '...[Truncated due to length limit]...\n' + recentLogs.substring(recentLogs.length - maxLogsLength + 40);
+        }
+
+        const infoMsg = baseMsg + recentLogs + footer;
         return message.reply(infoMsg);
       } catch (err) {
         console.error('Error handling =lastinfo command:', err);
