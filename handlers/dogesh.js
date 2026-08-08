@@ -3,6 +3,7 @@ const gemini = require('../lib/geminiClient');
 const { tavilySearch } = require('../lib/tavily');
 const { addEntry, getRecent } = require('../lib/convoMemory');
 const tracker = require('../lib/tracker');
+const { withTimeout } = require('../lib/utils');
 
 const MODEL_NAME = 'llama-3.3-70b-versatile';
 
@@ -229,7 +230,11 @@ Response:
     // If the cache is not fully loaded, try to fetch to get the complete list
     if (membersArray.length < message.guild.memberCount) {
       try {
-        const fetchedMembers = await message.guild.members.fetch();
+        const fetchedMembers = await withTimeout(
+          message.guild.members.fetch(),
+          5000,
+          'Guild members fetch timed out'
+        );
         membersArray = Array.from(fetchedMembers.values());
       } catch (err) {
         console.warn('⚠️ Error fetching server members, using cache fallback:', err.message || err);
@@ -310,6 +315,8 @@ CRITICAL RULES:
       model: MODEL_NAME,
       messages: messagesForCheck,
       max_tokens: 10
+    }, {
+      timeout: 10000
     });
     checkAnswer = (checkRes.choices[0].message.content || '').trim();
   } catch (err) {
@@ -396,7 +403,11 @@ Example Output:
     }
 
     tracker.lastExecution.tavilyUsed = `yes (${searchMode})`;
-    const results = await tavilySearch(optimizedQuery, searchMode);
+    const results = await withTimeout(
+      tavilySearch(optimizedQuery, searchMode),
+      10000,
+      'Tavily search timed out'
+    );
 
     const followupSystemPrompt = `You are Dogesh — the Discord AFK helper. Use the provided web search results to answer the user's question.
 
@@ -455,7 +466,7 @@ Answering rules:
     }
 
     if (!finalAnswer) {
-      const finalRes = await groq.chat.completions.create({ model: MODEL_NAME, messages: messagesForFollowup });
+      const finalRes = await groq.chat.completions.create({ model: MODEL_NAME, messages: messagesForFollowup }, { timeout: 15000 });
       finalAnswer = finalRes.choices[0].message.content;
       tracker.lastExecution.modelUsed = MODEL_NAME;
       tracker.lastExecution.apiKeyUsed = 'Groq Fallback';
@@ -515,7 +526,7 @@ Answering rules:
     }
 
     if (!finalAnswer) {
-      const finalRes = await groq.chat.completions.create({ model: MODEL_NAME, messages: messagesForDirect });
+      const finalRes = await groq.chat.completions.create({ model: MODEL_NAME, messages: messagesForDirect }, { timeout: 15000 });
       finalAnswer = finalRes.choices[0].message.content;
       tracker.lastExecution.modelUsed = MODEL_NAME;
       tracker.lastExecution.apiKeyUsed = 'Groq Fallback';

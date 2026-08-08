@@ -2,6 +2,7 @@ require('./lib/logger');
 const { Client, GatewayIntentBits, ActivityType, PermissionsBitField, AttachmentBuilder } = require('discord.js');
 const { handleDogesh } = require('./handlers/dogesh');
 const reminderScheduler = require('./lib/reminderScheduler');
+const { withTimeout } = require('./lib/utils');
 
 
 const client = new Client({
@@ -46,7 +47,7 @@ client.on('messageCreate', async (message) => {
   } else if (message.reference && message.reference.messageId) {
     try {
       repliedToMessage = message.channel.messages.cache.get(message.reference.messageId)
-        || await message.channel.messages.fetch(message.reference.messageId);
+        || await withTimeout(message.channel.messages.fetch(message.reference.messageId), 5000, 'Fetch replied message timed out');
 
       if (repliedToMessage && repliedToMessage.author.id === client.user.id) {
         query = content;
@@ -54,7 +55,7 @@ client.on('messageCreate', async (message) => {
 
         if (repliedToMessage.reference && repliedToMessage.reference.messageId) {
           originalUserMessage = message.channel.messages.cache.get(repliedToMessage.reference.messageId)
-            || await message.channel.messages.fetch(repliedToMessage.reference.messageId);
+            || await withTimeout(message.channel.messages.fetch(repliedToMessage.reference.messageId), 5000, 'Fetch original message timed out');
         }
       }
     } catch (err) {
@@ -71,7 +72,11 @@ client.on('messageCreate', async (message) => {
       const actualQuery = equalNumMatch[2] || '';
       if (limit > 0 && limit <= 50) {
         try {
-          const fetched = await message.channel.messages.fetch({ limit, before: message.id });
+          const fetched = await withTimeout(
+            message.channel.messages.fetch({ limit, before: message.id }),
+            5000,
+            'Fetch channel context messages timed out'
+          );
           const msgArray = Array.from(fetched.values()).reverse();
           channelContext = msgArray.map(m => `${m.author.username}: "${m.content}"`).join('\n');
           query = actualQuery || 'Summarize the recent conversation above.';
