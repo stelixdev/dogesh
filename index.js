@@ -1,5 +1,5 @@
 require('./lib/logger');
-const { Client, GatewayIntentBits, ActivityType, PermissionsBitField, AttachmentBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, ActivityType, PermissionsBitField, AttachmentBuilder, Events } = require('discord.js');
 const { handleDogesh } = require('./handlers/dogesh');
 const reminderScheduler = require('./lib/reminderScheduler');
 const { withTimeout } = require('./lib/utils');
@@ -133,7 +133,7 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-client.once('clientReady', () => {
+client.once(Events.ClientReady, () => {
   console.log(`🤖 Bot ready: ${client.user.tag}`);
   reminderScheduler.init(client);
   client.user.setPresence({
