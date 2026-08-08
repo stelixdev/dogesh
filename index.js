@@ -2,6 +2,20 @@ require('./lib/logger');
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 
+(async () => {
+  console.log('[Connection Test] Testing connection to discord.com...');
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const t0 = Date.now();
+    const res = await fetch('https://discord.com/api/v10/gateway', { signal: controller.signal });
+    clearTimeout(timeoutId);
+    console.log(`[Connection Test] Success! HTTP ${res.status} in ${Date.now() - t0}ms`);
+  } catch (err) {
+    console.error(`[Connection Test] Failed to connect to discord.com:`, err.message);
+  }
+})();
+
 const { Client, GatewayIntentBits, ActivityType, PermissionsBitField, AttachmentBuilder, Events } = require('discord.js');
 const { handleDogesh } = require('./handlers/dogesh');
 const reminderScheduler = require('./lib/reminderScheduler');
