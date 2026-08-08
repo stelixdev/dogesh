@@ -159,10 +159,10 @@ server.listen(PORT, () => {
   console.log(`🤖 HTTP Health-check server listening on port ${PORT}`);
 });
 
-client.on('debug', (info) => {
-  if (info.includes('Gateway') || info.includes('Active') || info.includes('Session') || info.includes('Rate limit') || info.includes('connect') || info.includes('rate')) {
-    console.log(`[Discord Debug] ${info}`);
-  }
-});
+client.on('error', (err) => console.error('[Discord Client Error]', err));
+client.on('warn', (warning) => console.warn('[Discord Client Warning]', warning));
+client.on('invalidated', () => console.warn('[Discord Client Invalidated]'));
+client.on('rateLimit', (info) => console.warn('[Discord REST Rate Limit]', info));
+client.on('debug', (info) => console.log(`[Discord Debug] ${info}`));
 
 client.login(process.env.BOT_TOKEN);
