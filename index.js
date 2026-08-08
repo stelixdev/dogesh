@@ -38,6 +38,22 @@ const client = new Client({
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
+  // Automatically extract and save user shared GIFs
+  try {
+    const gifManager = require('./lib/gifManager');
+    const urls = message.content.match(/https?:\/\/[^\s]+/gi) || [];
+    for (const url of urls) {
+      gifManager.saveGif(url, message.author.username);
+    }
+    message.attachments.forEach(attachment => {
+      if (attachment.url && (attachment.url.toLowerCase().split('?')[0].endsWith('.gif') || (attachment.contentType && attachment.contentType.startsWith('image/gif')))) {
+        gifManager.saveGif(attachment.url, message.author.username);
+      }
+    });
+  } catch (err) {
+    console.error('Error saving shared GIF:', err);
+  }
+
   const content = message.content.trim();
   const lower = content.toLowerCase();
 
