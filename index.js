@@ -1,4 +1,7 @@
 require('./lib/logger');
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
+
 const { Client, GatewayIntentBits, ActivityType, PermissionsBitField, AttachmentBuilder, Events } = require('discord.js');
 const { handleDogesh } = require('./handlers/dogesh');
 const reminderScheduler = require('./lib/reminderScheduler');
@@ -12,6 +15,9 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
   ],
+  rest: {
+    timeout: 15000,
+  }
 });
 
 // /dogesh commands handle karna
