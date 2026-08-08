@@ -159,4 +159,10 @@ server.listen(PORT, () => {
   console.log(`🤖 HTTP Health-check server listening on port ${PORT}`);
 });
 
+client.on('debug', (info) => {
+  if (info.includes('Gateway') || info.includes('Active') || info.includes('Session') || info.includes('Rate limit') || info.includes('connect') || info.includes('rate')) {
+    console.log(`[Discord Debug] ${info}`);
+  }
+});
+
 client.login(process.env.BOT_TOKEN);
