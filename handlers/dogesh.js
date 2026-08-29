@@ -263,7 +263,7 @@ Response:
     if (savedGifs.length > 0) {
       savedGifsBlock = `[Database of Available GIFs (Saved from conversations)]:\n`;
       for (const g of savedGifs.slice(0, 25)) {
-        savedGifsBlock += `- URL: ${g.url}\n  Description: ${g.description}\n`;
+        savedGifsBlock += `- URL: ${g.url}\n  Description: ${g.description}\n  Added By: ${g.addedBy || 'unknown'}\n`;
       }
       savedGifsBlock += '\n';
     }
