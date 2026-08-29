@@ -286,21 +286,20 @@ Response:
   }
 
   // Two-stage flow: ask Groq if the question requires realtime data.
-  const REALTIME_TOKEN = '<<<REALTIME_REQUIRED>>>';
   const recent = await getRecent(message.channel.id);
   const currentDate = new Date().toDateString();
 
-  const checkPromptSystem = `You are a search decision assistant. Your task is to analyze the user's message and decide whether answering it REQUIRES fetching real-time/live web information (examples: live sports scores, current stock/crypto prices, today's weather, flight status, live server status, recent news from the last few days, "as of today/now" statistics).
+  const checkPromptSystem = `You are a search decision assistant. Your task is to analyze the user's message and decide whether answering it REQUIRES fetching real-time/live web information (examples: live sports scores, current stock/crypto prices, today's weather, flight status, live server status, recent news from the last few days, "as of today/now" statistics like screen counts, population, or current events).
 
 Current Calendar Date: ${currentDate}
 
 CRITICAL RULES:
-1. Do NOT require search for general suggestions, brainstorming, ideas, or tips (e.g. "party ideas", "gift for sister", "recipe for pizza", "fun things to do", "lets do party", "party plans bta"). These should be answered using static knowledge!
+1. Do NOT require search for general suggestions, brainstorming, ideas, or tips (e.g. "party ideas", "gift for sister", "recipe for pizza", "fun things to do", "lets do party", "party plans bta").
 2. Do NOT require search for casual chat, greetings, banter, insults, or roleplay (e.g. "hello", "kaisa hai", "lets do party", "laat maar", "tu nalla hai").
 3. Do NOT require search for coding help, math, general history, general science, or general knowledge (e.g. "how to write quicksort", "capital of France", "who wrote Hamlet").
-4. ONLY return "${REALTIME_TOKEN}" if the question cannot be answered truthfully without checking the live web right now.
-5. Otherwise, return "<<<NO_REALTIME>>>".
-6. Output ONLY "${REALTIME_TOKEN}" or "<<<NO_REALTIME>>>". Do NOT include any other text, prefix, or explanation.`;
+4. Return a JSON object with a single key "realtime_required" (boolean).
+   - Set to true if the question cannot be answered truthfully without checking the live web right now.
+   - Otherwise, set to false.`;
 
   const userContent = contextBlock
     ? `${contextBlock}User question: "${query}"`
@@ -327,19 +326,22 @@ CRITICAL RULES:
   // Start typing indicator immediately
   message.channel.sendTyping().catch(() => {});
 
-  let checkAnswer = '';
+  let realtimeRequired = false;
   try {
     const checkRes = await groq.chat.completions.create({
       model: MODEL_NAME,
+      response_format: { type: 'json_object' },
       messages: messagesForCheck,
-      max_tokens: 10
+      max_tokens: 30
     }, {
       timeout: 10000
     });
-    checkAnswer = (checkRes.choices[0].message.content || '').trim();
+    const parsed = JSON.parse(checkRes.choices[0].message.content || '{}');
+    realtimeRequired = !!parsed.realtime_required;
+    console.log(`[Groq Decision] Realtime required: ${realtimeRequired} (Raw: ${checkRes.choices[0].message.content.trim()})`);
   } catch (err) {
     console.error('Error during check stage:', err);
-    checkAnswer = '<<<NO_REALTIME>>>';
+    realtimeRequired = false;
   }
 
   const directSystemPrompt = `You are Dogesh — a friendly Discord helper which helps the user in doing calculations checking some facts or getting information as a helper in in-friends discussion.
@@ -360,8 +362,8 @@ Answering rules:
 - **Using GIFs from Database**: If the user's message matches the meme or mood of any GIF in the [Database of Available GIFs], you can naturally include/append the exact GIF URL in your reply. Do NOT invent new GIF URLs; only use the exact URLs listed in the [Database of Available GIFs]. Do NOT repeat or send the same GIF URL if it was already sent in the immediate previous messages of the conversation (to avoid spamming).
 - **Handling User Sent GIFs**: If a user sent a GIF (listed under [User Sent GIFs]), make sure to include/append the user's GIF URL in your reply to keep the meme.`;
 
-  // If Groq returned the realtime token, fetch Tavily and ask Groq again with web evidence.
-  if (checkAnswer.includes(REALTIME_TOKEN)) {
+  // If Groq returned the realtime flag, fetch Tavily and ask Groq again with web evidence.
+  if (realtimeRequired) {
     // Show a single search update message to inform the user since search + generation can take 2-3s
     const searchingMsg = await message.reply('🔍 Searching web & thinking...');
     
