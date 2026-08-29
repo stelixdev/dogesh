@@ -5,7 +5,7 @@ const { addEntry, getRecent } = require('../lib/convoMemory');
 const tracker = require('../lib/tracker');
 const { withTimeout } = require('../lib/utils');
 
-const MODEL_NAME = 'openai/gpt-oss-20b';
+const MODEL_NAME = 'openai/gpt-oss-120b';
 
 function postProcessResponse(text, guild) {
   if (!text) return text;
