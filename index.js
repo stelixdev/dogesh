@@ -6,11 +6,12 @@ dns.setDefaultResultOrder('ipv4first');
   console.log('[Connection Test] Testing connection to discord.com...');
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     const t0 = Date.now();
     const res = await fetch('https://discord.com/api/v10/gateway', { signal: controller.signal });
     clearTimeout(timeoutId);
-    console.log(`[Connection Test] Success! HTTP ${res.status} in ${Date.now() - t0}ms`);
+    const body = await res.text();
+    console.log(`[Connection Test] HTTP ${res.status} in ${Date.now() - t0}ms | retry-after: ${res.headers.get('retry-after')} | reset-after: ${res.headers.get('x-ratelimit-reset-after')} | body: ${body.substring(0, 200)}`);
   } catch (err) {
     console.error(`[Connection Test] Failed to connect to discord.com:`, err.message);
   }
@@ -215,4 +216,8 @@ client.on('invalidated', () => console.warn('[Discord Client Invalidated]'));
 client.on('rateLimit', (info) => console.warn('[Discord REST Rate Limit]', info));
 client.on('debug', (info) => console.log(`[Discord Debug] ${info}`));
 
-client.login(process.env.BOT_TOKEN);
+client.login(process.env.BOT_TOKEN ? process.env.BOT_TOKEN.trim() : '').then(() => {
+  console.log('✅ client.login resolved successfully!');
+}).catch(err => {
+  console.error('❌ client.login rejected:', err);
+});
