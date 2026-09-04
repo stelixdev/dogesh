@@ -216,8 +216,17 @@ client.on('invalidated', () => console.warn('[Discord Client Invalidated]'));
 client.on('rateLimit', (info) => console.warn('[Discord REST Rate Limit]', info));
 client.on('debug', (info) => console.log(`[Discord Debug] ${info}`));
 
-client.login(process.env.BOT_TOKEN ? process.env.BOT_TOKEN.trim() : '').then(() => {
-  console.log('✅ client.login resolved successfully!');
-}).catch(err => {
-  console.error('❌ client.login rejected:', err);
-});
+// Check if running on the old orphaned Render instance
+const hostname = process.env.RENDER_EXTERNAL_HOSTNAME || '';
+const serviceName = process.env.RENDER_SERVICE_NAME || '';
+const isOrphanedRender = hostname.includes('dogesh-9cj2') || serviceName.includes('dogesh-9cj2');
+
+if (isOrphanedRender) {
+  console.warn('⚠️ Orphaned Render instance (dogesh-9cj2) detected. Disabling Discord login to stop rate-limit loop.');
+} else {
+  client.login(process.env.BOT_TOKEN ? process.env.BOT_TOKEN.trim() : '').then(() => {
+    console.log('✅ client.login resolved successfully!');
+  }).catch(err => {
+    console.error('❌ client.login rejected:', err);
+  });
+}
