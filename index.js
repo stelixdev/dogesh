@@ -187,6 +187,20 @@ process.on('unhandledRejection', (err) => {
 // Port binding for Koyeb/Render/Vercel health checks
 const PORT = process.env.PORT || 3000;
 const server = http.createServer((req, res) => {
+  if (req.url === '/debug') {
+    const logger = require('./lib/logger');
+    const statusMap = ['READY', 'CONNECTING', 'RECONNECTING', 'IDLE', 'NEARLY', 'DISCONNECTED', 'WAITING_FOR_GUILDS', 'IDENTIFYING', 'RESUMING'];
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({
+      wsStatus: statusMap[client.ws.status] || client.ws.status,
+      user: client.user ? client.user.tag : null,
+      botId: client.user ? client.user.id : null,
+      uptimeSeconds: Math.floor(process.uptime()),
+      ping: client.ws.ping,
+      nodeVersion: process.version,
+      recentLogs: logger.getRecentLogs(35)
+    }, null, 2));
+  }
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('Dogesh Bhai is online re! 💀\n');
 });
