@@ -62,16 +62,13 @@ client.on('messageCreate', async (message) => {
   let repliedToMessage = null;
   let originalUserMessage = null;
 
-  const mention = client.user ? `<@${client.user.id}>` : '';
-  const mentionNick = client.user ? `<@!${client.user.id}>` : '';
+  const botId = client.user ? client.user.id : null;
+  const isMentioned = botId && message.mentions.users.has(botId);
+  const isDM = !message.guild;
   const textPrefix = '@dogesh bhai';
 
-  if (mention && content.startsWith(mention)) {
-    query = content.slice(mention.length).trim();
-    if (!query) return message.reply('Kuch toh puch bhai! 😅');
-    shouldReply = true;
-  } else if (mentionNick && content.startsWith(mentionNick)) {
-    query = content.slice(mentionNick.length).trim();
+  if (isMentioned) {
+    query = content.replace(new RegExp(`<@!?${botId}>`, 'g'), '').trim();
     if (!query) return message.reply('Kuch toh puch bhai! 😅');
     shouldReply = true;
   } else if (lower.startsWith(textPrefix + ' ')) {
@@ -80,12 +77,15 @@ client.on('messageCreate', async (message) => {
     shouldReply = true;
   } else if (lower === textPrefix) {
     return message.reply('Kuch toh puch bhai! 😅');
+  } else if (isDM) {
+    query = content;
+    shouldReply = true;
   } else if (message.reference && message.reference.messageId) {
     try {
       repliedToMessage = message.channel.messages.cache.get(message.reference.messageId)
         || await withTimeout(message.channel.messages.fetch(message.reference.messageId), 5000, 'Fetch replied message timed out');
 
-      if (repliedToMessage && repliedToMessage.author.id === client.user.id) {
+      if (repliedToMessage && botId && repliedToMessage.author.id === botId) {
         query = content;
         shouldReply = true;
 

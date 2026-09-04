@@ -497,10 +497,18 @@ Answering rules:
     }
 
     if (!finalAnswer) {
-      const finalRes = await groq.chat.completions.create({ model: MODEL_NAME, messages: messagesForFollowup }, { timeout: 15000 });
-      finalAnswer = finalRes.choices[0].message.content;
-      tracker.lastExecution.modelUsed = MODEL_NAME;
-      tracker.lastExecution.apiKeyUsed = 'Groq Fallback';
+      try {
+        const finalRes = await groq.chat.completions.create({ model: MODEL_NAME, messages: messagesForFollowup }, { timeout: 15000 });
+        finalAnswer = finalRes.choices[0]?.message?.content || '';
+        tracker.lastExecution.modelUsed = MODEL_NAME;
+        tracker.lastExecution.apiKeyUsed = 'Groq Fallback';
+      } catch (err) {
+        console.error('Groq search fallback failed:', err);
+      }
+    }
+
+    if (!finalAnswer) {
+      finalAnswer = 'Bhai abhi thoda load chal raha hai server pe, 2 minute baad try kar! 😅';
     }
 
     await searchingMsg.delete().catch(() => {});
@@ -557,10 +565,18 @@ Answering rules:
     }
 
     if (!finalAnswer) {
-      const finalRes = await groq.chat.completions.create({ model: MODEL_NAME, messages: messagesForDirect }, { timeout: 15000 });
-      finalAnswer = finalRes.choices[0].message.content;
-      tracker.lastExecution.modelUsed = MODEL_NAME;
-      tracker.lastExecution.apiKeyUsed = 'Groq Fallback';
+      try {
+        const finalRes = await groq.chat.completions.create({ model: MODEL_NAME, messages: messagesForDirect }, { timeout: 15000 });
+        finalAnswer = finalRes.choices[0]?.message?.content || '';
+        tracker.lastExecution.modelUsed = MODEL_NAME;
+        tracker.lastExecution.apiKeyUsed = 'Groq Fallback';
+      } catch (err) {
+        console.error('Groq direct fallback failed:', err);
+      }
+    }
+
+    if (!finalAnswer) {
+      finalAnswer = 'Bhai abhi thoda load chal raha hai server pe, 2 minute baad try kar! 😅';
     }
 
     const processedAnswer = postProcessResponse(finalAnswer, message.guild);
