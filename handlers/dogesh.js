@@ -332,7 +332,7 @@ CRITICAL RULES:
       model: MODEL_NAME,
       response_format: { type: 'json_object' },
       messages: messagesForCheck,
-      max_tokens: 30
+      max_tokens: 150
     }, {
       timeout: 10000
     });
