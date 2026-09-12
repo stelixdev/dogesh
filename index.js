@@ -170,9 +170,11 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-client.once(Events.ClientReady, () => {
+client.once(Events.ClientReady, async () => {
   console.log(`🤖 Bot ready: ${client.user.tag}`);
   reminderScheduler.init(client);
+  const gifManager = require('./lib/gifManager');
+  await gifManager.init(client);
   client.user.setPresence({
     activities: [{ name: '@Dogesh Bhai ask anything 👻', type: ActivityType.Custom }],
     status: 'online',
