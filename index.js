@@ -41,16 +41,29 @@ client.on('messageCreate', async (message) => {
 
   // Automatically extract and save user shared GIFs
   try {
-    const gifManager = require('./lib/gifManager');
-    const urls = message.content.match(/https?:\/\/[^\s]+/gi) || [];
-    for (const url of urls) {
-      gifManager.saveGif(url, message.author.username);
-    }
-    message.attachments.forEach(attachment => {
-      if (attachment.url && (attachment.url.toLowerCase().split('?')[0].endsWith('.gif') || (attachment.contentType && attachment.contentType.startsWith('image/gif')))) {
-        gifManager.saveGif(attachment.url, message.author.username);
+    const memoryChannelId = (process.env.GIF_MEMORY_CHANNEL_ID || '').trim();
+    // Ignore messages inside the dedicated memory channel to avoid capture loops
+    if (!memoryChannelId || message.channel.id !== memoryChannelId) {
+      const gifManager = require('./lib/gifManager');
+      const rawUrls = message.content.match(/https?:\/\/[^\s"'<>\`)]+/gi) || [];
+      const uniqueUrls = new Set();
+      for (const raw of rawUrls) {
+        const cleaned = gifManager.cleanAndNormalizeUrl(raw);
+        if (cleaned && gifManager.isGifUrl(cleaned)) {
+          uniqueUrls.add(cleaned);
+        }
       }
-    });
+      for (const url of uniqueUrls) {
+        await gifManager.saveGif(url, message.author.username);
+      }
+      if (message.attachments && message.attachments.size > 0) {
+        for (const attachment of message.attachments.values()) {
+          if (attachment.url && (attachment.url.toLowerCase().split('?')[0].endsWith('.gif') || (attachment.contentType && attachment.contentType.startsWith('image/gif')))) {
+            await gifManager.saveGif(attachment.url, message.author.username);
+          }
+        }
+      }
+    }
   } catch (err) {
     console.error('Error saving shared GIF:', err);
   }
