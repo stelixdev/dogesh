@@ -185,6 +185,10 @@ process.on('unhandledRejection', (err) => {
   console.error('Unhandled error:', err);
 });
 
+process.on('uncaughtException', (err) => {
+  console.error('[Uncaught Exception]', err);
+});
+
 // Port binding for Koyeb/Render/Vercel health checks
 const PORT = process.env.PORT || 3000;
 const server = http.createServer((req, res) => {
@@ -208,6 +212,22 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`🤖 HTTP Health-check server listening on port ${PORT}`);
+
+  // Auto Keep-Alive pinger to prevent Render free instance from spinning down
+  const externalUrl = process.env.RENDER_EXTERNAL_URL ||
+    (process.env.RENDER_EXTERNAL_HOSTNAME ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}` : null);
+
+  if (externalUrl) {
+    console.log(`[Keep-Alive] Initializing 5-minute auto-pinger for ${externalUrl}`);
+    setInterval(async () => {
+      try {
+        const res = await fetch(externalUrl);
+        console.log(`[Keep-Alive] Pinged ${externalUrl} -> HTTP ${res.status}`);
+      } catch (err) {
+        console.warn(`[Keep-Alive] Ping failed:`, err.message);
+      }
+    }, 5 * 60 * 1000);
+  }
 });
 
 client.on('error', (err) => console.error('[Discord Client Error]', err));
