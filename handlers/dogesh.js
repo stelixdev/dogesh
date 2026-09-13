@@ -244,7 +244,7 @@ Response:
     }
 
     if (membersArray.length > 0) {
-      const maxMembersToList = 35;
+      const maxMembersToList = 15;
       const memberLines = membersArray.slice(0, maxMembersToList).map(m => {
         const roles = m.roles.cache.map(r => r.name).filter(n => n !== '@everyone').join(', ') || 'None';
         return `- ${m.displayName} (@${m.user.username}) [ID: ${m.user.id}]${m.user.bot ? ' [BOT]' : ''} (Roles: ${roles})`;
@@ -264,7 +264,7 @@ Response:
     const savedGifs = gifManager.getGifs();
     if (savedGifs.length > 0) {
       savedGifsBlock = `[Database of Available GIFs (Saved from conversations)]:\n`;
-      for (const g of savedGifs.slice(0, 25)) {
+      for (const g of savedGifs.slice(0, 8)) {
         savedGifsBlock += `- URL: ${g.url}\n  Description: ${g.description}\n  Added By: ${g.addedBy || 'unknown'}\n`;
       }
       savedGifsBlock += '\n';
@@ -504,7 +504,7 @@ Additional Web Search Answering rules:
       { role: 'system', content: directSystemPrompt }
     ];
 
-    for (const entry of recent) {
+    for (const entry of recent.slice(-8)) {
       const msg = {
         role: entry.role,
         content: (entry.role === 'user' && entry.name) ? `[${entry.name}]: ${entry.content}` : entry.content
