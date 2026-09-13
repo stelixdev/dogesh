@@ -515,9 +515,10 @@ Additional Web Search Answering rules:
       messagesForDirect.push(msg);
     }
 
+    const senderName = message.member ? message.member.displayName : message.author.username;
     const directUserContent = contextBlock
-      ? `${contextBlock}User question: "${query}"`
-      : `User question: "${query}"`;
+      ? `${contextBlock}[Message from ${senderName} (@${message.author.username})]: "${query}"\n(CRITICAL INSTRUCTION: You are replying directly to ${senderName}. Address them directly in the second person ("tu", "teri", "tujhe"). NEVER talk about ${senderName} in the third person!)`
+      : `[Message from ${senderName} (@${message.author.username})]: "${query}"\n(CRITICAL INSTRUCTION: You are replying directly to ${senderName}. Address them directly in the second person ("tu", "teri", "tujhe"). NEVER talk about ${senderName} in the third person!)`;
 
     messagesForDirect.push({
       role: 'user',
