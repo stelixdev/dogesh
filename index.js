@@ -17,7 +17,7 @@ dns.setDefaultResultOrder('ipv4first');
   }
 })();
 
-const { Client, GatewayIntentBits, ActivityType, PermissionsBitField, AttachmentBuilder, Events } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, ActivityType, PermissionsBitField, AttachmentBuilder, Events } = require('discord.js');
 const { handleDogesh } = require('./handlers/dogesh');
 const reminderScheduler = require('./lib/reminderScheduler');
 const { withTimeout } = require('./lib/utils');
@@ -30,8 +30,38 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
   ],
+  partials: [
+    Partials.Message,
+    Partials.Channel,
+  ],
   rest: {
     timeout: 15000,
+  }
+});
+
+// Real-time Gateway sync for memory channel deletions (0 REST API calls!)
+client.on(Events.MessageDelete, async (message) => {
+  try {
+    const memoryChannelId = (process.env.GIF_MEMORY_CHANNEL_ID || process.env.MEMORY_CHANNEL_ID || '').trim();
+    if (memoryChannelId && message.channel && message.channel.id === memoryChannelId) {
+      const gifManager = require('./lib/gifManager');
+      gifManager.removeGifByMessageId(message.id);
+    }
+  } catch (err) {
+    console.error('Error handling MessageDelete in memory channel:', err);
+  }
+});
+
+// Real-time Gateway sync for memory channel edits (syncs updated description immediately)
+client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
+  try {
+    const memoryChannelId = (process.env.GIF_MEMORY_CHANNEL_ID || process.env.MEMORY_CHANNEL_ID || '').trim();
+    if (memoryChannelId && newMessage.channel && newMessage.channel.id === memoryChannelId) {
+      const gifManager = require('./lib/gifManager');
+      gifManager.updateGifFromDiscordMessage(newMessage);
+    }
+  } catch (err) {
+    console.error('Error handling MessageUpdate in memory channel:', err);
   }
 });
 
@@ -39,9 +69,9 @@ const client = new Client({
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
-  // Automatically extract and save user shared GIFs
+  // Automatically track user shared GIFs (2-hit candidate rule before saving)
   try {
-    const memoryChannelId = (process.env.GIF_MEMORY_CHANNEL_ID || '').trim();
+    const memoryChannelId = (process.env.GIF_MEMORY_CHANNEL_ID || process.env.MEMORY_CHANNEL_ID || '').trim();
     // Ignore messages inside the dedicated memory channel to avoid capture loops
     if (!memoryChannelId || message.channel.id !== memoryChannelId) {
       const gifManager = require('./lib/gifManager');
@@ -54,12 +84,12 @@ client.on('messageCreate', async (message) => {
         }
       }
       for (const url of uniqueUrls) {
-        await gifManager.saveGif(url, message.author.username);
+        await gifManager.recordCandidateOrSave(url, message.author.username);
       }
       if (message.attachments && message.attachments.size > 0) {
         for (const attachment of message.attachments.values()) {
           if (attachment.url && (attachment.url.toLowerCase().split('?')[0].endsWith('.gif') || (attachment.contentType && attachment.contentType.startsWith('image/gif')))) {
-            await gifManager.saveGif(attachment.url, message.author.username);
+            await gifManager.recordCandidateOrSave(attachment.url, message.author.username);
           }
         }
       }
