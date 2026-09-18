@@ -192,18 +192,20 @@ Response:
   // Always use the two-stage Groq flow; remove special-case math handling.
   let prompt = '';
 
-  // Extract Tenor GIFs
-  const tenorUrls = query.match(/https:\/\/tenor\.com\/view\/[^\s]+/gi) || [];
+  // Extract User-Sent GIFs (Tenor, Klipy, Giphy, direct .gif)
+  const gifUrlRegex = /https?:\/\/(?:www\.)?(?:tenor\.com\/view\/|klipy\.com\/gifs\/|giphy\.com\/gifs\/|giphy\.com\/media\/|[^\s]+\.gif)[^\s]*/gi;
+  const userGifUrls = query.match(gifUrlRegex) || [];
+  const cleanQuery = query.replace(gifUrlRegex, '').trim();
+
   let gifContextBlock = '';
-  if (tenorUrls.length > 0) {
-    gifContextBlock = `[User Sent GIFs]:\n`;
-    for (const url of tenorUrls) {
-      const match = url.match(/https:\/\/tenor\.com\/view\/([a-zA-Z0-9-]+?)(?:-gif)?(?:-\d+)?$/i);
-      const slug = match ? match[1] : '';
-      const description = slug ? slug.replace(/-/g, ' ') : 'unknown';
-      gifContextBlock += `- URL: ${url}\n  Description: ${description}\n`;
+  if (userGifUrls.length > 0) {
+    gifContextBlock = `[User Attached/Sent GIFs]:\n`;
+    for (const url of userGifUrls) {
+      const match = url.match(/(?:tenor\.com\/view\/|klipy\.com\/gifs\/|giphy\.com\/gifs\/)([a-zA-Z0-9-]+)/i);
+      const slug = match ? match[1].replace(/-/g, ' ') : '';
+      gifContextBlock += `- URL: ${url}${slug ? ` (Slug: ${slug})` : ''}\n`;
     }
-    gifContextBlock += '\n';
+    gifContextBlock += `(Rule: If the user is explicitly requesting a specific or different GIF/meme from your database, send that requested database GIF, do NOT just echo what the user attached!)\n\n`;
   }
 
   let replyContext = '';
@@ -263,8 +265,23 @@ Response:
     const gifManager = require('../lib/gifManager');
     const savedGifs = gifManager.getGifs();
     if (savedGifs.length > 0) {
+      // Keyword relevance ranking so the most matching GIFs appear first
+      const queryWords = (cleanQuery || query).toLowerCase().match(/[a-z0-9]+/g) || [];
+      const ranked = savedGifs.slice().sort((a, b) => {
+        const descA = (a.description || '').toLowerCase() + ' ' + (a.url || '').toLowerCase();
+        const descB = (b.description || '').toLowerCase() + ' ' + (b.url || '').toLowerCase();
+        let scoreA = 0;
+        let scoreB = 0;
+        for (const w of queryWords) {
+          if (w.length < 3) continue;
+          if (descA.includes(w)) scoreA += 2;
+          if (descB.includes(w)) scoreB += 2;
+        }
+        return scoreB - scoreA;
+      });
+
       savedGifsBlock = `[Database of Available GIFs (Saved from conversations)]:\n`;
-      for (const g of savedGifs.slice(0, 8)) {
+      for (const g of ranked.slice(0, 50)) {
         savedGifsBlock += `- URL: ${g.url}\n  Description: ${g.description}\n  Added By: ${g.addedBy || 'unknown'}\n`;
       }
       savedGifsBlock += '\n';
@@ -389,9 +406,10 @@ Example Output:
       }
 
       // Add user request with context block
+      const userPromptText = cleanQuery || query;
       const userReqContent = contextBlock
-        ? `${contextBlock}User request: "${query}"\n\nOptimize this request for search based on the context above.`
-        : `User request: "${query}"\n\nOptimize this request for search.`;
+        ? `${contextBlock}User request: "${userPromptText}"\n\nOptimize this request for search based on the context above.`
+        : `User request: "${userPromptText}"\n\nOptimize this request for search.`;
 
       messagesForOptimize.push({
         role: 'user',
@@ -447,9 +465,10 @@ Additional Web Search Answering rules:
       messagesForFollowup.push(msg);
     }
 
+    const userPromptText = cleanQuery || query;
     const followupUserContent = contextBlock
-      ? `${contextBlock}User question: "${query}"`
-      : `User question: "${query}"`;
+      ? `${contextBlock}User question: "${userPromptText}"`
+      : `User question: "${userPromptText}"`;
 
     messagesForFollowup.push({
       role: 'user',
@@ -516,9 +535,10 @@ Additional Web Search Answering rules:
     }
 
     const senderName = message.member ? message.member.displayName : message.author.username;
+    const userPromptText = cleanQuery || query;
     const directUserContent = contextBlock
-      ? `${contextBlock}[Message from ${senderName} (@${message.author.username})]: "${query}"\n(CRITICAL INSTRUCTION: You are replying directly to ${senderName}. Address them directly in the second person ("tu", "teri", "tujhe"). NEVER talk about ${senderName} in the third person!)`
-      : `[Message from ${senderName} (@${message.author.username})]: "${query}"\n(CRITICAL INSTRUCTION: You are replying directly to ${senderName}. Address them directly in the second person ("tu", "teri", "tujhe"). NEVER talk about ${senderName} in the third person!)`;
+      ? `${contextBlock}[Message from ${senderName} (@${message.author.username})]: "${userPromptText}"\n(CRITICAL INSTRUCTION: You are replying directly to ${senderName}. Address them directly in the second person ("tu", "teri", "tujhe"). NEVER talk about ${senderName} in the third person!)`
+      : `[Message from ${senderName} (@${message.author.username})]: "${userPromptText}"\n(CRITICAL INSTRUCTION: You are replying directly to ${senderName}. Address them directly in the second person ("tu", "teri", "tujhe"). NEVER talk about ${senderName} in the third person!)`;
 
     messagesForDirect.push({
       role: 'user',
