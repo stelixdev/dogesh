@@ -46,6 +46,10 @@ client.on(Events.MessageDelete, async (message) => {
     if (memoryChannelId && message.channel && message.channel.id === memoryChannelId) {
       const gifManager = require('./lib/gifManager');
       gifManager.removeGifByMessageId(message.id);
+      const configManager = require('./lib/configManager');
+      if (configManager.getConfigMessageId && message.id === configManager.getConfigMessageId()) {
+        configManager.onConfigMessageDeleted();
+      }
     }
   } catch (err) {
     console.error('Error handling MessageDelete in memory channel:', err);
@@ -59,6 +63,10 @@ client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
     if (memoryChannelId && newMessage.channel && newMessage.channel.id === memoryChannelId) {
       const gifManager = require('./lib/gifManager');
       gifManager.updateGifFromDiscordMessage(newMessage);
+      const configManager = require('./lib/configManager');
+      if (configManager.getConfigMessageId && newMessage.id === configManager.getConfigMessageId()) {
+        configManager.onConfigMessageUpdated(newMessage);
+      }
     }
   } catch (err) {
     console.error('Error handling MessageUpdate in memory channel:', err);
@@ -216,6 +224,8 @@ client.on('messageCreate', async (message) => {
 client.once(Events.ClientReady, async () => {
   console.log(`🤖 Bot ready: ${client.user.tag}`);
   reminderScheduler.init(client);
+  const configManager = require('./lib/configManager');
+  await configManager.initDiscordSync(client);
   const gifManager = require('./lib/gifManager');
   await gifManager.init(client);
   client.user.setPresence({
