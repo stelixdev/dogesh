@@ -2,18 +2,21 @@ require('./lib/logger');
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 
+const DISCORD_API_BASE = (process.env.DISCORD_API_PROXY || 'https://discord.com/api').trim().replace(/\/+$/, '');
+
 (async () => {
-  console.log('[Connection Test] Testing connection to discord.com...');
+  const isProxied = DISCORD_API_BASE !== 'https://discord.com/api';
+  console.log(`[Connection Test] Testing connection to ${isProxied ? 'Discord via Proxy (' + DISCORD_API_BASE + ')' : 'discord.com'}...`);
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
     const t0 = Date.now();
-    const res = await fetch('https://discord.com/api/v10/gateway', { signal: controller.signal });
+    const res = await fetch(`${DISCORD_API_BASE}/v10/gateway`, { signal: controller.signal });
     clearTimeout(timeoutId);
     const body = await res.text();
     console.log(`[Connection Test] HTTP ${res.status} in ${Date.now() - t0}ms | retry-after: ${res.headers.get('retry-after')} | reset-after: ${res.headers.get('x-ratelimit-reset-after')} | body: ${body.substring(0, 200)}`);
   } catch (err) {
-    console.error(`[Connection Test] Failed to connect to discord.com:`, err.message);
+    console.error(`[Connection Test] Failed to connect:`, err.message);
   }
 })();
 
@@ -35,6 +38,7 @@ const client = new Client({
     Partials.Channel,
   ],
   rest: {
+    api: DISCORD_API_BASE,
     timeout: 15000,
   }
 });

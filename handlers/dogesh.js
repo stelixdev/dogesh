@@ -487,12 +487,16 @@ Additional Web Search Answering rules:
 
     if (!finalAnswer) {
       try {
-        const finalRes = await groq.chat.completions.create({ model: MODEL_NAME, messages: messagesForFollowup }, { timeout: 15000 });
+        const finalRes = await withTimeout(
+          groq.chat.completions.create({ model: MODEL_NAME, messages: messagesForFollowup }),
+          15000,
+          'Groq search fallback request timed out after 15s'
+        );
         finalAnswer = finalRes.choices[0]?.message?.content || '';
         tracker.lastExecution.modelUsed = MODEL_NAME;
         tracker.lastExecution.apiKeyUsed = 'Groq Fallback';
       } catch (err) {
-        console.error('Groq search fallback failed:', err);
+        console.error('Groq search fallback failed:', err.message || err);
       }
     }
 
@@ -557,12 +561,16 @@ Additional Web Search Answering rules:
 
     if (!finalAnswer) {
       try {
-        const finalRes = await groq.chat.completions.create({ model: MODEL_NAME, messages: messagesForDirect }, { timeout: 15000 });
+        const finalRes = await withTimeout(
+          groq.chat.completions.create({ model: MODEL_NAME, messages: messagesForDirect }),
+          15000,
+          'Groq direct fallback request timed out after 15s'
+        );
         finalAnswer = finalRes.choices[0]?.message?.content || '';
         tracker.lastExecution.modelUsed = MODEL_NAME;
         tracker.lastExecution.apiKeyUsed = 'Groq Fallback';
       } catch (err) {
-        console.error('Groq direct fallback failed:', err);
+        console.error('Groq direct fallback failed:', err.message || err);
       }
     }
 
