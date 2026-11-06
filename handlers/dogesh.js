@@ -306,7 +306,8 @@ Response:
 
   // Two-stage flow: ask Groq if the question requires realtime data.
   const recent = await getRecent(message.channel.id);
-  const currentDate = new Date().toDateString();
+  const timeVibeData = getTimeVibe();
+  const currentDate = timeVibeData.dateFormatted;
 
   const checkPromptSystem = `You are a search decision assistant. Your task is to analyze the user's message and decide whether answering it REQUIRES fetching real-time/live web information (examples: live sports scores, current stock/crypto prices, today's weather, flight status, live server status, recent news from the last few days, "as of today/now" statistics like screen counts, population, or current events).
 
@@ -364,7 +365,11 @@ CRITICAL RULES:
   }
 
   const timeVibeData = getTimeVibe();
-  const directSystemPrompt = configManager.buildFullSystemPrompt({ timeVibe: timeVibeData.instruction });
+  const directSystemPrompt = configManager.buildFullSystemPrompt({
+    timeVibe: timeVibeData.instruction,
+    dateFormatted: timeVibeData.dateFormatted,
+    timeFormatted: timeVibeData.timeFormatted
+  });
 
   // If Groq returned the realtime flag, fetch Tavily and ask Groq again with web evidence.
   if (realtimeRequired) {
