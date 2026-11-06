@@ -364,7 +364,6 @@ CRITICAL RULES:
     realtimeRequired = false;
   }
 
-  const timeVibeData = getTimeVibe();
   const directSystemPrompt = configManager.buildFullSystemPrompt({
     timeVibe: timeVibeData.instruction,
     dateFormatted: timeVibeData.dateFormatted,
